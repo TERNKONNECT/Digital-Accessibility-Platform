@@ -20,6 +20,9 @@ User.hasMany(IntegrationPin, { foreignKey: "userId", as: "pins" });
 IntegrationPin.belongsTo(Organization, { foreignKey: "organizationId", as: "organization" });
 Organization.hasMany(IntegrationPin, { foreignKey: "organizationId", as: "pins" });
 
+IntegrationPin.belongsTo(Tool, { foreignKey: "toolId", as: "tool" });
+Tool.hasMany(IntegrationPin, { foreignKey: "toolId", as: "pins" });
+
 UsageLog.belongsTo(User, { foreignKey: "userId", as: "user" });
 User.hasMany(UsageLog, { foreignKey: "userId", as: "usageLogs" });
 

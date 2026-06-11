@@ -17,7 +17,10 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, role?: string, organizationName?: string) => Promise<{ message: string, verificationLink?: string }>;
   logout: () => void;
+  forgotPassword: (email: string) => Promise<{ message: string }>;
+  resetPassword: (email: string, otp: string, password: string) => Promise<{ message: string }>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -34,6 +37,33 @@ export const useAuthStore = create<AuthState>()(
           set({ user, token, isAuthenticated: true });
         } catch (error: any) {
           throw new Error(error.response?.data?.error || "Login failed");
+        }
+      },
+
+      signup: async (name, email, password, role, organizationName) => {
+        try {
+          const res = await axios.post(`${API_URL}/auth/register`, { name, email, password, role, organizationName });
+          return res.data;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.error || "Signup failed");
+        }
+      },
+
+      forgotPassword: async (email) => {
+        try {
+          const res = await axios.post(`${API_URL}/auth/forgot-password`, { email });
+          return res.data;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.error || "Failed to process request");
+        }
+      },
+
+      resetPassword: async (email, otp, password) => {
+        try {
+          const res = await axios.post(`${API_URL}/auth/reset-password`, { email, otp, password });
+          return res.data;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.error || "Password reset failed");
         }
       },
 

@@ -71,3 +71,37 @@ To ensure fair use and billing accuracy:
 3. The root HTML element `className` or `data-theme` attribute changes.
 4. CSS Variables (defined in `index.css`) recalculate instantly.
 5. Voice notifications trigger via the `useTTS` hook to announce: "High contrast mode enabled."
+
+## 5. Chrome Extension Integration Flow
+
+The Ternkonnect Accessibility Platform can be embedded into third-party browsers via a Chrome Extension.
+1. **Installation**: User installs the Ternkonnect Chrome Extension.
+2. **Authentication**: 
+   - The user clicks the extension icon.
+   - The extension prompts for `Email` and `Integration PIN` (generated via the main Ternkonnect dashboard).
+   - The extension saves these credentials locally (`chrome.storage.local`).
+3. **Accessibility Injection**:
+   - The extension injects content scripts into the active tab.
+   - It applies custom CSS filters (e.g., contrast overrides) and attaches to DOM elements for screen-reading.
+4. **AI Assistant Overlay**:
+   - The extension spawns a Floating UI widget.
+   - When opened, it connects via WebSocket to the proxy: `wss://api.ternkonnect.com/api/tools/proxy?email=...&pin=...`.
+   - The user can highlight text on the third-party page and click "Summarize" within the extension, forwarding the text over the WebSocket to Gemini.
+
+## 6. Widget Integration Flow (Third-Party Websites)
+
+Organizations (like the Main LMS) can embed Ternkonnect's accessibility tools directly into their websites.
+1. **Script Embedding**: The third-party website includes the widget loader script: `<script src="https://widget.ternkonnect.com/widget.js"></script>`.
+2. **Initialization**: The script initializes with the Organization's public API key or a specific User's Integration PIN.
+3. **DOM Manipulation**: The widget injects accessibility toggles (Contrast, Font size) fixed to the bottom corner of the viewport.
+4. **Communication**:
+   - The widget establishes an iframe or a Shadow DOM container to prevent CSS bleeding.
+   - Chat/Voice interactions map directly to the `api/tools/proxy` endpoint.
+
+## 7. Documentation Processes
+
+For developers integrating with Ternkonnect:
+1. **API Reference**: Detailed Swagger/OpenAPI specifications covering REST endpoints (`/api/auth`, `/api/pin`, `/api/stats`).
+2. **Integration Guide**: Step-by-step tutorials for integrating the Widget SDK into React/Vue/Vanilla HTML.
+3. **Changelogs**: Maintaining a `CHANGELOG.md` file tracking updates to WebSocket protocols and new accessibility features.
+4. **Developer Dashboard**: Organizations use `/dashboard/org-admin` to monitor widget usage, generate new API keys, and manage billing for their integrations.

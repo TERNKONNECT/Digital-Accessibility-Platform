@@ -32,13 +32,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Home className="w-5 h-5 text-zinc-500" />
             <span>Dashboard</span>
           </Link>
+          <Link href="/dashboard/tools" className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <BarChart2 className="w-5 h-5 text-zinc-500" />
+            <span>Tools</span>
+          </Link>
           <Link href="/dashboard/chat" className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
             <MessageSquare className="w-5 h-5 text-zinc-500" />
             <span>AI Chat</span>
-          </Link>
-          <Link href="/dashboard/stats" className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-            <BarChart2 className="w-5 h-5 text-zinc-500" />
-            <span>Statistics</span>
           </Link>
         </nav>
 

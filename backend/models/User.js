@@ -10,6 +10,11 @@ const User = sequelize.define("User", {
     type: DataTypes.ENUM("superadmin", "solo", "org_admin", "org_user"), 
     defaultValue: "solo" 
   },
+  emailVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
+  emailVerificationToken: { type: DataTypes.STRING, allowNull: true },
+  emailVerificationExpires: { type: DataTypes.DATE, allowNull: true },
+  passwordResetToken: { type: DataTypes.STRING, allowNull: true },
+  passwordResetExpires: { type: DataTypes.DATE, allowNull: true },
 });
 
 module.exports = User;

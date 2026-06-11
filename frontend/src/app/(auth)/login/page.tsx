@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -62,6 +63,10 @@ export default function LoginPage() {
             Sign In
           </button>
         </form>
+        <div className="mt-4 flex justify-between text-sm">
+          <Link href="/forgot-password" className="text-[var(--primary)] hover:underline">Forgot Password?</Link>
+          <Link href="/signup" className="text-[var(--primary)] hover:underline">Sign Up</Link>
+        </div>
       </div>
     </div>
   );
