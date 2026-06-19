@@ -3,7 +3,7 @@
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { LogOut, Home, BarChart2, MessageSquare } from "lucide-react";
+import { LogOut, Home, MessageSquare, Wrench, CreditCard, History, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -36,10 +36,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <MessageSquare className="w-5 h-5 text-zinc-500" />
             <span>AI Chat</span>
           </Link>
-          <Link href="/dashboard/stats" className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-            <BarChart2 className="w-5 h-5 text-zinc-500" />
-            <span>Statistics</span>
+          <Link href="/dashboard/tools" className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <Wrench className="w-5 h-5 text-zinc-500" />
+            <span>Tools</span>
           </Link>
+          <Link href="/dashboard/billing" className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <CreditCard className="w-5 h-5 text-zinc-500" />
+            <span>Billing</span>
+          </Link>
+          <Link href="/dashboard/activity" className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <History className="w-5 h-5 text-zinc-500" />
+            <span>Activity</span>
+          </Link>
+          {(user.role === "superadmin" || user.role === "org_admin") && (
+            <Link href="/dashboard/admin" className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+              <ShieldCheck className="w-5 h-5 text-zinc-500" />
+              <span>Admin</span>
+            </Link>
+          )}
         </nav>
 
         <div className="p-4 border-t border-[var(--border)]">

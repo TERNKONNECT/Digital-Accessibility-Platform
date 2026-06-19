@@ -18,8 +18,8 @@ export default function LoginPage() {
       await login(email, password);
       // Redirect based on role logic could go here, or handled inside dashboard
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Failed to login");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to login");
     }
   };
 
