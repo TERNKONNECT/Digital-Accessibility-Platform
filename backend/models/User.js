@@ -10,6 +10,7 @@ const User = sequelize.define("User", {
     type: DataTypes.ENUM("superadmin", "solo", "org_admin", "org_user"), 
     defaultValue: "solo" 
   },
+  status: { type: DataTypes.ENUM("active", "suspended"), defaultValue: "active" },
 });
 
 module.exports = User;

@@ -19,11 +19,13 @@ const authRoutes = require("./routes/auth");
 const pinRoutes = require("./routes/pin");
 const toolsRoutes = require("./routes/tools");
 const statsRoutes = require("./routes/stats");
+const platformRoutes = require("./routes/platform");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/pin", pinRoutes);
 app.use("/api/tools", toolsRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/platform", platformRoutes);
 
 const PORT = process.env.PORT || 9001;
 
