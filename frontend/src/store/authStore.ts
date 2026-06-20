@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
-const API_URL = "http://localhost:9001/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9001/api";
 
 export interface User {
   id: string;
@@ -35,8 +35,12 @@ export const useAuthStore = create<AuthState>()(
           const res = await axios.post(`${API_URL}/auth/login`, { email, password });
           const { token, user } = res.data;
           set({ user, token, isAuthenticated: true });
-        } catch (error: any) {
-          throw new Error(error.response?.data?.error || "Login failed");
+        } catch (error: unknown) {
+          if (error instanceof AxiosError) {
+            const data = error.response?.data as { error?: string } | undefined;
+            throw new Error(data?.error || "Login failed");
+          }
+          throw new Error("Login failed");
         }
       },
 
