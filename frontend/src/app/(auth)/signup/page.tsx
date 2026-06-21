@@ -36,6 +36,17 @@ export default function SignupPage() {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-[var(--background)] py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-lg border border-[var(--border)] overflow-y-auto max-h-full">
+        <div className="flex justify-center mb-6">
+          <Link href="/" className="flex items-center gap-3" aria-label="Ternkonnect home">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--primary)] text-base font-bold text-white">
+              TK
+            </span>
+            <span className="text-left">
+              <span className="block text-lg font-semibold leading-5 text-[var(--foreground)]">Ternkonnect</span>
+              <span className="block text-xs font-medium text-zinc-500">Digital Accessibility Tools</span>
+            </span>
+          </Link>
+        </div>
         <h1 className="text-2xl font-bold text-center text-[var(--foreground)] mb-2">Create an Account</h1>
         <p className="text-center text-sm text-zinc-500 mb-6">Join Ternkonnect Digital Accessibility Platform</p>
         
@@ -73,6 +84,11 @@ export default function SignupPage() {
         </form>
         <div className="mt-4 text-center text-sm">
           Already have an account? <Link href="/login" className="text-[var(--primary)] hover:underline">Log in</Link>
+        </div>
+        <div className="mt-4 text-center text-sm">
+          <Link href="/" className="text-zinc-500 hover:text-[var(--primary)] flex items-center justify-center gap-1.5 transition-colors">
+            &larr; Back to Landing Page
+          </Link>
         </div>
       </div>
     </div>
