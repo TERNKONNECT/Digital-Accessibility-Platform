@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -38,9 +39,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-lg border border-[var(--border)] overflow-y-auto max-h-full">
         <div className="flex justify-center mb-6">
           <Link href="/" className="flex items-center gap-3" aria-label="Ternkonnect home">
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--primary)] text-base font-bold text-white">
-              TK
-            </span>
+            <Image src="/ternkonnect-logo.png" alt="Ternkonnect" width={40} height={40} className="rounded-lg" />
             <span className="text-left">
               <span className="block text-lg font-semibold leading-5 text-[var(--foreground)]">Ternkonnect</span>
               <span className="block text-xs font-medium text-zinc-500">Digital Accessibility Tools</span>

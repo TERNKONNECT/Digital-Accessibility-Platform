@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Eye, Keyboard, Volume2 } from "lucide-react";
 
 const features = [
@@ -25,9 +26,7 @@ export default function Home() {
       <section className="border-b border-[var(--border)] bg-white dark:bg-zinc-950">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-5">
           <Link href="/" className="flex items-center gap-3" aria-label="Ternkonnect home">
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--primary)] text-base font-bold text-white">
-              TK
-            </span>
+            <Image src="/ternkonnect-logo.png" alt="Ternkonnect" width={40} height={40} className="rounded-lg" />
             <span>
               <span className="block text-lg font-semibold leading-5">Ternkonnect</span>
               <span className="block text-xs font-medium text-zinc-500">Digital Accessibility Tools</span>
