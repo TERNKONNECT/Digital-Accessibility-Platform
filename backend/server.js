@@ -5,12 +5,19 @@ const http = require("http");
 const WebSocket = require("ws");
 const bcrypt = require("bcryptjs");
 const url = require("url");
-const { sequelize, User, IntegrationPin, UsageLog } = require("./models");
+const { sequelize, User, IntegrationPin, UsageLog, ChromeIntegration, Subscription } = require("./models");
 
+const path = require("path");
 const app = express();
 const server = http.createServer(app);
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+app.use("/extension", express.static(path.join(__dirname, "../../new-chrome-extension")));
+
 
 // Basic health check
 app.get("/health", (req, res) => res.json({ status: "ok" }));
@@ -36,40 +43,71 @@ server.on("upgrade", async (request, socket, head) => {
   const { pathname, query } = url.parse(request.url, true);
 
   if (pathname === "/api/tools/proxy") {
-    const { email, pin } = query;
+    const { email, pin, integrationCode, trial, profileId } = query;
 
-    // Authenticate
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
-    }
+    let user = null;
 
-    const pins = await IntegrationPin.findAll({ where: { userId: user.id, status: "active" } });
-    let isValid = false;
-    for (let p of pins) {
-      if (await bcrypt.compare(pin, p.pin)) {
-        isValid = true;
-        break;
+    if (trial === "true") {
+      // Allow trials to connect
+      user = { email: `trial-${profileId || "anonymous"}`, id: null };
+    } else {
+      const codeToUse = integrationCode || pin;
+      if (!email || !codeToUse) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
+      // Check ChromeIntegration code
+      const integration = await ChromeIntegration.findOne({
+        where: { integrationCode: codeToUse },
+        include: [{ model: User, as: "user" }]
+      });
+
+      if (integration && integration.user && integration.user.email.toLowerCase() === email.toLowerCase()) {
+        user = integration.user;
+        
+        // Verify active subscription
+        const subscription = await Subscription.findByPk(user.subscriptionId);
+        if (!subscription || subscription.status !== "active") {
+          socket.write('HTTP/1.1 402 Payment Required\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+      } else {
+        // Fallback to IntegrationPin
+        const foundUser = await User.findOne({ where: { email } });
+        if (foundUser) {
+          const pins = await IntegrationPin.findAll({ where: { userId: foundUser.id, status: "active" } });
+          let isValid = false;
+          for (let p of pins) {
+            if (await bcrypt.compare(codeToUse, p.pin)) {
+              isValid = true;
+              break;
+            }
+          }
+          if (isValid) {
+            user = foundUser;
+          }
+        }
+      }
+
+      if (!user) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
       }
     }
 
-    if (!isValid) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-
     wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit("connection", ws, request, user);
+      wss.emit("connection", ws, request, user, profileId);
     });
   } else {
     socket.destroy();
   }
 });
 
-wss.on("connection", (clientWs, request, user) => {
+wss.on("connection", (clientWs, request, user, profileId) => {
   // We don't have GEMINI_API_KEY_FALLBACK, assume the server provides it via .env
   // For safety if not provided, just drop connection or use placeholder
   const geminiApiKey = process.env.GEMINI_API_KEY || 'YOUR_MASTER_GEMINI_KEY';
@@ -78,7 +116,7 @@ wss.on("connection", (clientWs, request, user) => {
   const targetWs = new WebSocket(targetUrl);
 
   targetWs.on("open", () => {
-    console.log(`[Proxy] Connected to Gemini for User: ${user.email}`);
+    console.log(`[Proxy] Connected to Gemini for User: ${user.email} (Profile: ${profileId || "unknown"})`);
   });
 
   clientWs.on("message", (message) => {
@@ -107,9 +145,54 @@ wss.on("connection", (clientWs, request, user) => {
   });
 });
 
-sequelize.sync({ alter: true })
-  .then(() => {
+const seedDatabase = require("./seed");
+
+sequelize.sync()
+  .then(async () => {
     console.log("Database connected and synced");
+    try {
+      // Migrate currency and amount units to Naira (if not already migrated)
+            const { SubscriptionPlan, PaymentHistory, Subscription } = require("./models");
+      
+      // Update legacy "paid" status to "successful" via raw query to bypass model enum validation
+      await sequelize.query("UPDATE PaymentHistories SET status = 'successful' WHERE status = 'paid';").catch(() => {});
+
+      const plans = await SubscriptionPlan.findAll();
+      for (const plan of plans) {
+        let updatedAmount = plan.amount;
+        if (plan.amount > 1000) {
+          updatedAmount = Math.round(plan.amount / 100);
+        }
+        await plan.update({ currency: "NGN", amount: updatedAmount });
+      }
+      const payments = await PaymentHistory.findAll();
+      for (const p of payments) {
+        let updatedAmount = p.amount;
+        if (p.amount > 1000) {
+          updatedAmount = Math.round(p.amount / 100);
+        }
+        await p.update({ currency: "NGN", amount: updatedAmount });
+      }
+      console.log("Database migration to NGN & Naira complete.");
+
+      // Heal orphaned subscriptions where planId is null but plan matches an active SubscriptionPlan name
+      const activePlans = await SubscriptionPlan.findAll({ where: { status: "active" } });
+      const orphanedSubs = await Subscription.findAll({ where: { planId: null } });
+      for (const sub of orphanedSubs) {
+        const matchingPlan = activePlans.find(p => p.name.toLowerCase().trim() === sub.plan?.toLowerCase().trim());
+        if (matchingPlan) {
+          await sub.update({ planId: matchingPlan.id });
+          console.log(`Healed orphaned subscription ${sub.id}: linked to active plan ${matchingPlan.name} (${matchingPlan.id})`);
+        }
+      }
+    } catch (migErr) {
+      console.error("Failed to run data migration to NGN:", migErr);
+    }
+    try {
+      await seedDatabase();
+    } catch (seedErr) {
+      console.error("Failed to seed database on startup:", seedErr);
+    }
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
@@ -117,3 +200,4 @@ sequelize.sync({ alter: true })
   .catch(err => {
     console.error("Unable to connect to the database:", err);
   });
+

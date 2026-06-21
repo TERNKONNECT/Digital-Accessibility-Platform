@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Activity, CalendarClock, Globe2, Layers, Monitor, Users } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { ActivityEntry, fetchOverview, formatDate, formatMoney, OverviewResponse } from "@/lib/platform";
+import { ActivityEntry, fetchOverview, formatDate, formatDateOnly, formatMoney, OverviewResponse } from "@/lib/platform";
 
 export default function OverviewDashboard({ title, subtitle }: { title: string; subtitle: string }) {
   const { token } = useAuthStore();
@@ -19,7 +19,7 @@ export default function OverviewDashboard({ title, subtitle }: { title: string; 
 
   const cards = [
     { label: "Active Subscription", value: overview.subscription.planName, icon: Layers, note: `${formatMoney(overview.subscription.price, overview.subscription.currency)} / ${overview.subscription.billingCycle}` },
-    { label: "Renewal Date", value: formatDate(overview.subscription.renewalDate), icon: CalendarClock, note: overview.subscription.status },
+    { label: "Next Renewal Date", value: formatDateOnly(overview.subscription.renewalDate), icon: CalendarClock, note: overview.subscription.status },
     { label: "Tools Enabled", value: overview.totals.toolsEnabled, icon: Activity, note: "Chrome Extension and Widget" },
     { label: "Widget Websites", value: overview.totals.widgetWebsites, icon: Globe2, note: `${overview.subscription.maxWebsites ?? "Unlimited"} allowed` },
     { label: "Chrome Profiles", value: overview.totals.chromeProfiles, icon: Monitor, note: `${overview.subscription.maxChromeProfiles ?? "Unlimited"} allowed` },

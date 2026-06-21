@@ -27,6 +27,10 @@ function getFromAddress() {
 
 export async function sendEmail({ to, subject, html }) {
     if (!process.env.RESEND_API_KEY) {
+        if (!isProduction()) {
+            console.warn(`Email not sent to ${to} because RESEND_API_KEY is not configured. Subject: ${subject}`);
+            return { skipped: true, reason: "resend_not_configured" };
+        }
         throw new Error("RESEND_API_KEY is not configured");
     }
 
@@ -161,9 +165,9 @@ function emailLayout({
 </html>`;
 }
 
-export function verificationEmailTemplate({ name, link }) {
+export function verificationOtpEmailTemplate({ name, otp }) {
     const safeName = escapeHtml(name);
-    const safeLink = escapeHtml(link);
+    const safeOtp = escapeHtml(otp);
 
     return emailLayout({
         preview: "Verify your email address to activate your TernKonnect Account",
@@ -171,16 +175,12 @@ export function verificationEmailTemplate({ name, link }) {
         title: "Confirm your email address",
         body: `
       <p style="margin:0 0 16px;">Hello ${safeName},</p>
-      <p style="margin:0 0 16px;">Welcome to TernKonnect. Please verify your email address so we can activate your account and keep your learning profile secure.</p>
-      <p style="margin:0;">This verification link expires in 24 hours.</p>
+      <p style="margin:0 0 16px;">Welcome to TernKonnect. Enter the code below to verify your email address and activate your account.</p>
+      <p style="margin:0;">This code expires in 30 minutes.</p>
     `,
-        action: {
-            href: safeLink,
-            label: "Verify Email Address",
-        },
         secondary: `
-      <p style="margin:0 0 10px;font-size:13px;line-height:1.6;color:#71717a;">Button not working? Copy and paste this secure link into your browser:</p>
-      <p style="margin:0;word-break:break-all;font-size:13px;line-height:1.6;color:#3f3f46;">${safeLink}</p>
+      <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.08em;">Your verification code</p>
+      <p style="margin:0;font-size:34px;line-height:1.2;font-weight:800;letter-spacing:8px;color:#111111;">${safeOtp}</p>
     `,
         footerNote:
             "If you did not create a TernKonnect account, you can safely ignore this email.",
@@ -209,10 +209,10 @@ export function passwordResetEmailTemplate({ name, otp }) {
     });
 }
 
-export function adminInviteEmailTemplate({ name, inviterName, link }) {
+export function adminInvitePasswordEmailTemplate({ name, inviterName, tempPassword }) {
     const safeName = escapeHtml(name);
     const safeInviterName = escapeHtml(inviterName || "A super admin");
-    const safeLink = escapeHtml(link);
+    const safeTempPassword = escapeHtml(tempPassword);
 
     return emailLayout({
         preview:
@@ -221,16 +221,12 @@ export function adminInviteEmailTemplate({ name, inviterName, link }) {
         title: "You are invited to become an admin",
         body: `
       <p style="margin:0 0 16px;">Hello ${safeName},</p>
-      <p style="margin:0 0 16px;">${safeInviterName} has invited you to join TernKonnect Academy as an administrator. Once your password is created, you will be able to manage courses and support learners from the admin dashboard.</p>
-      <p style="margin:0;">For your security, this invitation expires in 7 days.</p>
+      <p style="margin:0 0 16px;">${safeInviterName} has invited you to join TernKonnect Academy as an administrator. Use the temporary password below to log in — you will be asked to set a new password right away.</p>
+      <p style="margin:0;">For your security, change this password as soon as you log in.</p>
     `,
-        action: {
-            href: safeLink,
-            label: "Create Admin Password",
-        },
         secondary: `
-      <p style="margin:0 0 10px;font-size:13px;line-height:1.6;color:#71717a;">Button not working? Copy and paste this secure invitation link into your browser:</p>
-      <p style="margin:0;word-break:break-all;font-size:13px;line-height:1.6;color:#3f3f46;">${safeLink}</p>
+      <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.08em;">Your temporary password</p>
+      <p style="margin:0;font-size:28px;line-height:1.3;font-weight:800;letter-spacing:2px;color:#111111;word-break:break-all;">${safeTempPassword}</p>
     `,
         footerNote:
             "If you were not expecting this invitation, you can safely ignore this email.",

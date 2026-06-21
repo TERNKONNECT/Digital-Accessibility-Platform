@@ -16,6 +16,7 @@ const WidgetSite = sequelize.define("WidgetSite", {
   dailyUsage: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   weeklyUsage: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   monthlyUsage: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  isInternal: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 });
 
 module.exports = WidgetSite;

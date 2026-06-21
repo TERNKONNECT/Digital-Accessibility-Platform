@@ -16,6 +16,7 @@ const User = sequelize.define("User", {
   passwordResetToken: { type: DataTypes.STRING, allowNull: true },
   passwordResetExpires: { type: DataTypes.DATE, allowNull: true },
   status: { type: DataTypes.ENUM("active", "suspended"), defaultValue: "active" },
+  mustChangePassword: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 });
 
 module.exports = User;

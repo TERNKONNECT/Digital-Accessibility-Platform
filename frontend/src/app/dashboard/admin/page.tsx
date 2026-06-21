@@ -142,17 +142,35 @@ export default function AdminPage() {
           <table className="w-full text-left text-sm">
             <thead className="text-zinc-500"><tr><th className="py-2">User</th><th>Plan</th><th>Chrome</th><th>Profiles</th><th>Websites</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {filteredUsers.map((item: AdminUser) => (
-                <tr key={item.id} className="border-t border-[var(--border)]">
-                  <td className="py-3"><strong>{item.name}</strong><p className="text-xs text-zinc-500">{item.email}</p></td>
-                  <td>{item.subscription?.planDetails?.name || item.subscription?.plan || "None"}</td>
-                  <td>{item.chromeIntegration?.integrationCode || "No integration"}</td>
-                  <td>{item.chromeIntegration?.profiles?.length || 0}</td>
-                  <td>{item.widgetSites?.length || 0}</td>
-                  <td>{item.status || "active"}</td>
-                  <td><button onClick={() => setUserStatus(item.id, item.status === "suspended" ? "active" : "suspended")} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm">{item.status === "suspended" ? "Reactivate" : "Suspend"}</button></td>
-                </tr>
-              ))}
+              {filteredUsers.map((item: AdminUser) => {
+                const planDetails = item.subscription?.planDetails;
+                const isPlanActive = planDetails && planDetails.status === "active";
+                const isSuperAdmin = item.role === "superadmin";
+                const planName = isSuperAdmin ? "Super Admin (Unlimited)" : (isPlanActive ? planDetails.name : "None");
+                const nextBillingDate = isSuperAdmin ? "Continuous Access" : (isPlanActive && item.subscription?.endsAt ? new Date(item.subscription.endsAt).toLocaleDateString() : "N/A");
+                return (
+                  <tr key={item.id} className="border-t border-[var(--border)]">
+                    <td className="py-3">
+                      <strong>{item.name}</strong>
+                      <p className="text-xs text-zinc-500">{item.email}</p>
+                      <div className="text-[11px] mt-1.5 text-zinc-500 flex flex-col gap-0.5">
+                        <div>
+                          <span className="font-medium text-zinc-650 dark:text-zinc-400">Current Plan:</span> {planName}
+                        </div>
+                        <div>
+                          <span className="font-medium text-zinc-650 dark:text-zinc-400">Next Billing Date:</span> {nextBillingDate}
+                        </div>
+                      </div>
+                    </td>
+                    <td>{planName}</td>
+                    <td>{item.chromeIntegration?.integrationCode || "No integration"}</td>
+                    <td>{item.chromeIntegration?.profiles?.length || 0}</td>
+                    <td>{item.widgetSites?.length || 0}</td>
+                    <td>{item.status || "active"}</td>
+                    <td><button onClick={() => setUserStatus(item.id, item.status === "suspended" ? "active" : "suspended")} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm">{item.status === "suspended" ? "Reactivate" : "Suspend"}</button></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

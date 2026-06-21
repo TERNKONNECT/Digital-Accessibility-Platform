@@ -10,6 +10,7 @@ export interface User {
   email: string;
   role: "superadmin" | "org_admin" | "solo" | "org_user";
   organizationId?: string | null;
+  mustChangePassword?: boolean;
 }
 
 interface AuthState {
@@ -17,15 +18,20 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, role?: string, organizationName?: string) => Promise<{ message: string, verificationLink?: string }>;
+  signup: (name: string, email: string, password: string, role?: string, organizationName?: string) => Promise<{ message: string, verificationOtp?: string }>;
   logout: () => void;
   forgotPassword: (email: string) => Promise<{ message: string }>;
   resetPassword: (email: string, otp: string, password: string) => Promise<{ message: string }>;
+  verifyEmail: (email: string, otp: string) => Promise<{ message: string }>;
+  resendVerification: (email: string) => Promise<{ message: string, verificationOtp?: string }>;
+  updateProfile: (name: string, email: string) => Promise<{ verificationRequired: boolean }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ message: string }>;
+  inviteSuperadmin: (name: string, email: string) => Promise<{ message: string, tempPassword?: string }>;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
@@ -68,6 +74,56 @@ export const useAuthStore = create<AuthState>()(
           return res.data;
         } catch (error: any) {
           throw new Error(error.response?.data?.error || "Password reset failed");
+        }
+      },
+
+      verifyEmail: async (email, otp) => {
+        try {
+          const res = await axios.post(`${API_URL}/auth/verify-email`, { email, otp });
+          return res.data;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.error || "Email verification failed");
+        }
+      },
+
+      resendVerification: async (email) => {
+        try {
+          const res = await axios.post(`${API_URL}/auth/resend-verification`, { email });
+          return res.data;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.error || "Failed to resend verification code");
+        }
+      },
+
+      updateProfile: async (name, email) => {
+        try {
+          const { token, user } = get();
+          const res = await axios.patch(`${API_URL}/auth/profile`, { name, email }, { headers: { Authorization: `Bearer ${token}` } });
+          set({ user: { ...user, ...res.data.user } });
+          return res.data;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.error || "Failed to update profile");
+        }
+      },
+
+      changePassword: async (currentPassword, newPassword) => {
+        try {
+          const { token, user } = get();
+          const res = await axios.post(`${API_URL}/auth/change-password`, { currentPassword, newPassword }, { headers: { Authorization: `Bearer ${token}` } });
+          set({ user: user ? { ...user, mustChangePassword: false } : user });
+          return res.data;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.error || "Failed to change password");
+        }
+      },
+
+      inviteSuperadmin: async (name, email) => {
+        try {
+          const { token } = get();
+          const res = await axios.post(`${API_URL}/platform/admin/invite-superadmin`, { name, email }, { headers: { Authorization: `Bearer ${token}` } });
+          return res.data;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.error || "Failed to invite superadmin");
         }
       },
 

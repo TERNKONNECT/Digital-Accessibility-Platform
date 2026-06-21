@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { CheckCircle2 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { API_URL, authHeaders, formatDate, formatMoney, Payment, Plan, SubscriptionSummary } from "@/lib/platform";
+import { API_URL, authHeaders, formatDate, formatDateOnly, formatMoney, Payment, Plan, SubscriptionSummary } from "@/lib/platform";
 
 interface BillingResponse {
   subscription: SubscriptionSummary;
@@ -26,22 +26,89 @@ export default function BillingPage() {
     setPlans(plansResponse.data);
   }, [token]);
 
+  const [verifying, setVerifying] = useState(false);
+  const [verifyMessage, setVerifyMessage] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
   useEffect(() => {
     if (!token) return;
-    Promise.all([
-      axios.get(`${API_URL}/platform/billing`, { headers: authHeaders(token) }),
-      axios.get(`${API_URL}/platform/plans`, { headers: authHeaders(token) }),
-    ])
-      .then(([billingResponse, plansResponse]) => {
-        setBilling(billingResponse.data);
-        setPlans(plansResponse.data);
-      })
-      .catch(console.error);
-  }, [token]);
+    const params = new URLSearchParams(window.location.search);
+    const reference = params.get("reference");
+    if (reference) {
+      setVerifying(true);
+      setVerifyMessage("Informed backend. Awaiting webhook confirmation...");
+      
+      let pollInterval: NodeJS.Timeout;
+      
+      const checkPayment = async () => {
+        try {
+          const res = await axios.get(`${API_URL}/platform/payment/verify/${reference}`, { headers: authHeaders(token) });
+          if (res.data.status === "success") {
+            setVerifyMessage("Payment verified! Subscription activated successfully.");
+            clearInterval(pollInterval);
+            window.history.replaceState({}, document.title, window.location.pathname);
+            load();
+            setTimeout(() => {
+              setVerifying(false);
+              setVerifyMessage("");
+            }, 3000);
+          } else if (res.data.status === "failed") {
+            setVerifyMessage("Payment failed or was canceled. Please try again.");
+            clearInterval(pollInterval);
+            setTimeout(() => {
+              setVerifying(false);
+              setVerifyMessage("");
+            }, 4000);
+          } else {
+            // It is pending
+            setVerifyMessage("Awaiting webhook confirmation. Please wait...");
+          }
+        } catch (err: any) {
+          setVerifyMessage(err?.response?.data?.error || "Payment verification failed.");
+          clearInterval(pollInterval);
+          setTimeout(() => {
+            setVerifying(false);
+            setVerifyMessage("");
+          }, 4000);
+        }
+      };
 
-  async function changePlan(planId: string) {
-    await axios.post(`${API_URL}/platform/subscription/change`, { planId }, { headers: authHeaders(token) });
+      // Run immediately first
+      checkPayment();
+      
+      // Poll every 3 seconds
+      pollInterval = setInterval(checkPayment, 3000);
+      
+      return () => {
+        clearInterval(pollInterval);
+      };
+    }
+
     load();
+  }, [token, load]);
+
+  async function changePlan(plan: Plan) {
+    if (!token) return;
+    setActionLoading(plan.id);
+    try {
+      if (plan.amount > 0) {
+        // Initiate Paystack Payment
+        const res = await axios.post(`${API_URL}/platform/payment/initiate`, { planId: plan.id }, { headers: authHeaders(token) });
+        if (res.data?.authorization_url) {
+          window.location.href = res.data.authorization_url;
+        } else {
+          alert("Failed to initiate payment session.");
+        }
+      } else {
+        // Free plan change directly
+        await axios.post(`${API_URL}/platform/subscription/change`, { planId: plan.id }, { headers: authHeaders(token) });
+        await load();
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.error || "Could not switch plan.");
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   if (!billing) return <div className="h-48 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />;
@@ -50,15 +117,28 @@ export default function BillingPage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-3xl font-bold">Billing</h1>
-        <p className="text-zinc-500">View your current subscription, renewal date, plan options, and payment history.</p>
+        <p className="text-zinc-500">View your current subscription, next renewal date, plan options, and payment history.</p>
       </div>
+
+      {verifying && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-indigo-750 dark:border-indigo-950/20 dark:bg-indigo-950/20 dark:text-indigo-300 animate-pulse">
+          <p className="text-sm font-medium">{verifyMessage}</p>
+        </div>
+      )}
 
       <section className="rounded-lg border border-[var(--border)] bg-white p-6 dark:bg-zinc-900">
         <p className="text-sm font-medium text-zinc-500">Current Subscription</p>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-3xl font-semibold">{billing.subscription.planName}</h2>
-            <p className="mt-2 text-zinc-500">Renews {formatDate(billing.subscription.renewalDate)} · {billing.subscription.status}</p>
+            <div className="mt-3 text-xs text-zinc-500 flex flex-col gap-1.5">
+              <div>
+                <span className="font-semibold text-zinc-650 dark:text-zinc-400">Current Plan:</span> {billing.subscription.planName}
+              </div>
+              <div>
+                <span className="font-semibold text-zinc-650 dark:text-zinc-400">Next Billing Date:</span> {billing.subscription.renewalDate ? formatDateOnly(billing.subscription.renewalDate) : "Continuous Access"} ({billing.subscription.status})
+              </div>
+            </div>
           </div>
           <p className="text-2xl font-semibold">{formatMoney(billing.subscription.price, billing.subscription.currency)} <span className="text-sm font-normal text-zinc-500">/ {billing.subscription.billingCycle}</span></p>
         </div>
@@ -83,8 +163,12 @@ export default function BillingPage() {
                   <p>Chrome Profiles: <strong>{plan.maxChromeProfiles ?? "Unlimited"}</strong></p>
                   <p>Websites: <strong>{plan.maxWebsites ?? "Unlimited"}</strong></p>
                 </div>
-                <button disabled={active} onClick={() => changePlan(plan.id)} className="mt-5 w-full rounded-lg bg-[var(--primary)] px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300">
-                  {active ? "Current Plan" : "Switch Plan"}
+                <button 
+                  disabled={active || actionLoading !== null} 
+                  onClick={() => changePlan(plan)} 
+                  className="mt-5 w-full rounded-lg bg-[var(--primary)] px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+                >
+                  {active ? "Current Plan" : actionLoading === plan.id ? "Processing..." : "Switch Plan"}
                 </button>
               </div>
             );

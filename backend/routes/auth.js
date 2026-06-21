@@ -3,32 +3,33 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { User, Organization } = require("../models");
-const { appUrl, verificationEmailTemplate, passwordResetEmailTemplate, sendEmail } = require("../config/email.js");
+const { verificationOtpEmailTemplate, passwordResetEmailTemplate, sendEmail } = require("../config/email.js");
+const authenticateToken = require("../middleware/authenticate");
 
 const router = express.Router();
 
 const hashValue = (value) => crypto.createHash("sha256").update(value).digest("hex");
 const normalizeEmail = (email) => email.toLowerCase().trim();
 const tokenExpiry = (minutes) => new Date(Date.now() + minutes * 60 * 1000);
+const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 async function sendVerificationEmail(user) {
-  const token = crypto.randomBytes(32).toString("hex");
-  user.emailVerificationToken = hashValue(token);
-  user.emailVerificationExpires = tokenExpiry(60 * 24);
+  const otp = generateOtp();
+  user.emailVerificationToken = hashValue(otp);
+  user.emailVerificationExpires = tokenExpiry(30);
   await user.save();
 
-  const link = appUrl(`/verify-email?token=${token}&email=${encodeURIComponent(user.email)}`);
   const emailResult = await sendEmail({
     to: user.email,
     subject: "Verify your Ternkonnect account",
-    html: verificationEmailTemplate({ name: user.name, link }),
+    html: verificationOtpEmailTemplate({ name: user.name, otp }),
   });
 
   if (emailResult?.skipped) {
-    console.warn(`Verification link for ${user.email}: ${link}`);
+    console.warn(`Verification OTP for ${user.email}: ${otp}`);
   }
 
-  return { link, skipped: Boolean(emailResult?.skipped) };
+  return { otp, skipped: Boolean(emailResult?.skipped) };
 }
 
 async function sendPasswordResetEmail(user, otp) {
@@ -53,8 +54,8 @@ router.post("/register", async (req, res) => {
         existingUser.password = hashedPassword;
         const verification = await sendVerificationEmail(existingUser);
         return res.status(200).json({
-          message: verification.skipped ? "Account updated. Verification email could not be sent. Check logs." : "Account updated. Verification email resent.",
-          verificationLink: verification.skipped ? verification.link : undefined,
+          message: verification.skipped ? "Account updated. Verification email could not be sent. Check logs." : "Account updated. Verification code resent.",
+          verificationOtp: verification.skipped ? verification.otp : undefined,
         });
       }
       return res.status(400).json({ error: "Email already exists" });
@@ -79,23 +80,23 @@ router.post("/register", async (req, res) => {
 
     const verification = await sendVerificationEmail(user);
     res.status(201).json({
-      message: verification.skipped ? "Account created. Verification email could not be sent. Check logs." : "Account created. Check your email to verify your account.",
-      verificationLink: verification.skipped ? verification.link : undefined,
+      message: verification.skipped ? "Account created. Verification email could not be sent. Check logs." : "Account created. Check your email for a verification code.",
+      verificationOtp: verification.skipped ? verification.otp : undefined,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.get("/verify-email", async (req, res) => {
+router.post("/verify-email", async (req, res) => {
   try {
-    const { token, email } = req.query;
-    if (!token || !email) return res.status(400).json({ error: "Verification token is required" });
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: "Email and verification code are required" });
 
     const user = await User.findOne({ where: { email: normalizeEmail(String(email)) } });
 
-    if (!user || user.emailVerificationToken !== hashValue(String(token)) || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-      return res.status(400).json({ error: "Invalid or expired verification link" });
+    if (!user || user.emailVerificationToken !== hashValue(String(otp)) || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
+      return res.status(400).json({ error: "Invalid or expired verification code" });
     }
 
     user.emailVerified = true;
@@ -104,6 +105,26 @@ router.get("/verify-email", async (req, res) => {
     await user.save();
 
     res.json({ message: "Email verified. You can now log in." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/resend-verification", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const user = await User.findOne({ where: { email: normalizeEmail(String(email)) } });
+    if (!user || user.emailVerified) {
+      return res.json({ message: "If that account needs verification, a new code has been sent." });
+    }
+
+    const verification = await sendVerificationEmail(user);
+    res.json({
+      message: "If that account needs verification, a new code has been sent.",
+      verificationOtp: verification.skipped ? verification.otp : undefined,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -122,7 +143,7 @@ router.post("/login", async (req, res) => {
     if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
 
     const token = jwt.sign({ id: user.id, role: user.role, organizationId: user.organizationId }, process.env.JWT_SECRET, { expiresIn: "1d" });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, mustChangePassword: user.mustChangePassword } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -134,7 +155,7 @@ router.post("/forgot-password", async (req, res) => {
     const user = await User.findOne({ where: { email: normalizeEmail(email) } });
     if (!user) return res.json({ message: "If that email exists, a reset code has been sent." });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = generateOtp();
     user.passwordResetToken = hashValue(otp);
     user.passwordResetExpires = tokenExpiry(10);
     await user.save();
@@ -165,6 +186,76 @@ router.post("/reset-password", async (req, res) => {
     await user.save();
 
     res.json({ message: "Password reset successful. You can now log in." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/me", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ["id", "name", "email", "role", "organizationId", "emailVerified", "createdAt"],
+    });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch("/profile", authenticateToken, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    if (name) user.name = name;
+
+    let verificationRequired = false;
+    const normalizedEmail = email ? normalizeEmail(email) : null;
+    if (normalizedEmail && normalizedEmail !== user.email) {
+      const existing = await User.findOne({ where: { email: normalizedEmail } });
+      if (existing) return res.status(400).json({ error: "Email already in use" });
+
+      user.email = normalizedEmail;
+      user.emailVerified = false;
+      verificationRequired = true;
+    }
+
+    await user.save();
+
+    let verificationOtp;
+    if (verificationRequired) {
+      const verification = await sendVerificationEmail(user);
+      verificationOtp = verification.skipped ? verification.otp : undefined;
+    }
+
+    res.json({
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, organizationId: user.organizationId },
+      verificationRequired,
+      verificationOtp,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/change-password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Current and new password are required" });
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(401).json({ error: "Current password is incorrect" });
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.mustChangePassword = false;
+    await user.save();
+
+    res.json({ message: "Password changed successfully." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

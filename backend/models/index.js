@@ -9,9 +9,11 @@ const Tool = require("./Tool");
 const UsageLog = require("./UsageLog");
 const ChromeIntegration = require("./ChromeIntegration");
 const ChromeProfile = require("./ChromeProfile");
+const ChromeProfileActivity = require("./ChromeProfileActivity");
 const WidgetSite = require("./WidgetSite");
 const PaymentHistory = require("./PaymentHistory");
 const ActivityLog = require("./ActivityLog");
+const SystemSetting = require("./SystemSetting");
 
 // Associations
 User.belongsTo(Organization, { foreignKey: "organizationId", as: "organization" });
@@ -40,13 +42,17 @@ Organization.hasMany(UsageLog, { foreignKey: "organizationId", as: "usageLogs" }
 UsageLog.belongsTo(Tool, { foreignKey: "toolId", as: "tool" });
 Tool.hasMany(UsageLog, { foreignKey: "toolId", as: "usageLogs" });
 
-ChromeIntegration.belongsTo(User, { foreignKey: "userId", as: "user" });
+ChromeIntegration.belongsTo(User, { foreignKey: "userId", as: "user", onDelete: "SET NULL", onUpdate: "CASCADE" });
 User.hasOne(ChromeIntegration, { foreignKey: "userId", as: "chromeIntegration" });
 
 ChromeProfile.belongsTo(ChromeIntegration, { foreignKey: "chromeIntegrationId", as: "integration" });
 ChromeIntegration.hasMany(ChromeProfile, { foreignKey: "chromeIntegrationId", as: "profiles" });
-ChromeProfile.belongsTo(User, { foreignKey: "userId", as: "user" });
+ChromeProfile.belongsTo(User, { foreignKey: "userId", as: "user", onDelete: "SET NULL", onUpdate: "CASCADE" });
 User.hasMany(ChromeProfile, { foreignKey: "userId", as: "chromeProfiles" });
+
+ChromeProfileActivity.belongsTo(ChromeProfile, { foreignKey: "chromeProfileId", as: "chromeProfile" });
+ChromeProfile.hasMany(ChromeProfileActivity, { foreignKey: "chromeProfileId", as: "activities" });
+
 
 WidgetSite.belongsTo(User, { foreignKey: "userId", as: "user" });
 User.hasMany(WidgetSite, { foreignKey: "userId", as: "widgetSites" });
@@ -68,7 +74,9 @@ module.exports = {
   UsageLog,
   ChromeIntegration,
   ChromeProfile,
+  ChromeProfileActivity,
   WidgetSite,
   PaymentHistory,
   ActivityLog,
+  SystemSetting,
 };
