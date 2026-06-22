@@ -28,11 +28,46 @@ const toolsRoutes = require("./routes/tools");
 const statsRoutes = require("./routes/stats");
 const platformRoutes = require("./routes/platform");
 
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./swagger.json");
+
 app.use("/api/auth", authRoutes);
 app.use("/api/pin", pinRoutes);
 app.use("/api/tools", toolsRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/platform", platformRoutes);
+
+// Swagger Documentation
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// Landing Page
+app.get("/", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>TernKonnect API</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f5; margin: 0; }
+        .container { text-align: center; background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        h1 { color: #18181b; margin-bottom: 0.5rem; }
+        p { color: #71717a; margin-bottom: 2rem; }
+        .btn { background-color: #0ea5e9; color: white; padding: 0.75rem 1.5rem; border-radius: 6px; text-decoration: none; font-weight: 500; transition: background-color 0.2s; }
+        .btn:hover { background-color: #0284c7; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>🚀 API is Live</h1>
+        <p>TernKonnect Digital Accessibility Platform API is running successfully.</p>
+        <a href="/docs" class="btn">View API Documentation</a>
+      </div>
+    </body>
+    </html>
+  `);
+});
 
 const PORT = process.env.PORT || 9001;
 

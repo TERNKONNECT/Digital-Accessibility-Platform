@@ -1,0 +1,184 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "TernKonnect Digital Accessibility Platform API",
+    "description": "Comprehensive API documentation for the TernKonnect Digital Accessibility backend. \n\n### 💡 Hints for integration:\n1. **Authentication**: Most endpoints require a Bearer token. First, hit `/auth/login` to get a `token`, then pass it in the `Authorization` header as `Bearer <token>`.\n2. **Chrome Integration**: Use the endpoints under `/platform/chrome/` to track extension usage and generate integration codes.\n3. **Payments**: The platform uses Paystack for payments. Call `/platform/payment/initiate` to begin.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "TernKonnect Support",
+      "email": "support@ternkonnect.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Main API Route (Vercel / Local)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT token in the format: Bearer <token>"
+      }
+    }
+  },
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user account",
+        "description": "Creates a new user and sends an OTP to their email for verification. **Hint:** Wait for the OTP before attempting login.",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "John Doe" },
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "SecurePass123" }
+                },
+                "required": ["name", "email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Registration successful, OTP sent" },
+          "400": { "description": "User already exists or missing fields" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Authenticates a user and returns a JWT token for accessing protected routes. **Hint:** Save the `token` in your frontend state/storage.",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "SecurePass123" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful, returns JWT token and user info" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get Current User",
+        "description": "Retrieves the profile of the currently authenticated user.",
+        "tags": ["Authentication"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User profile data" },
+          "401": { "description": "Unauthorized - Missing or invalid token" }
+        }
+      }
+    },
+    "/pin/generate": {
+      "post": {
+        "summary": "Generate Chrome Integration PIN",
+        "description": "Generates a unique PIN for authenticating the Chrome Extension without a full login.",
+        "tags": ["Chrome Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Returns a new integration PIN" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/platform/overview": {
+      "get": {
+        "summary": "Platform Overview Data",
+        "description": "Retrieves the main dashboard overview data for the authenticated user, including usage limits, active profiles, and subscription details.",
+        "tags": ["Platform"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Overview data object" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/platform/payment/initiate": {
+      "post": {
+        "summary": "Initiate Paystack Payment",
+        "description": "Starts a new subscription payment process via Paystack. **Hint:** Requires `planId`. Redirect the user to the returned `authorization_url`.",
+        "tags": ["Payments & Billing"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "planId": { "type": "string", "example": "uuid-of-plan" }
+                },
+                "required": ["planId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Returns payment initiation URL and reference" },
+          "400": { "description": "Plan not found or invalid" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/platform/chrome/log-activity": {
+      "post": {
+        "summary": "Log Chrome Extension Activity",
+        "description": "Allows the Chrome extension to report usage activity back to the server.",
+        "tags": ["Chrome Integration"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "profileId": { "type": "string" },
+                  "actionType": { "type": "string" },
+                  "description": { "type": "string" },
+                  "integrationCode": { "type": "string", "description": "The secret code linking the extension to a user account" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Activity logged successfully" }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "Get User Usage Stats",
+        "description": "Retrieves usage statistics such as queries run, active duration, and extension engagements.",
+        "tags": ["Statistics"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Usage stats data" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  }
+}
