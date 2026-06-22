@@ -146,7 +146,6 @@ wss.on("connection", (clientWs, request, user, profileId) => {
 });
 
 const fs = require("fs");
-const path = require("path");
 const seedPath = path.join(__dirname, "seed.js");
 let seedDatabase = null;
 if (fs.existsSync(seedPath)) {
