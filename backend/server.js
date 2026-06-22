@@ -10,7 +10,11 @@ const { sequelize, User, IntegrationPin, UsageLog, ChromeIntegration, Subscripti
 const path = require("path");
 const app = express();
 const server = http.createServer(app);
-app.use(cors());
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"]
+}));
 app.use(express.json({
   verify: (req, res, buf) => {
     req.rawBody = buf;
