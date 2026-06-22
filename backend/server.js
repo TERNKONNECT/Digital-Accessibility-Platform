@@ -145,7 +145,13 @@ wss.on("connection", (clientWs, request, user, profileId) => {
   });
 });
 
-const seedDatabase = require("./seed");
+const fs = require("fs");
+const path = require("path");
+const seedPath = path.join(__dirname, "seed.js");
+let seedDatabase = null;
+if (fs.existsSync(seedPath)) {
+  seedDatabase = require("./seed");
+}
 
 sequelize.sync()
   .then(async () => {
@@ -189,7 +195,9 @@ sequelize.sync()
       console.error("Failed to run data migration to NGN:", migErr);
     }
     try {
-      await seedDatabase();
+      if (seedDatabase) {
+        await seedDatabase();
+      }
     } catch (seedErr) {
       console.error("Failed to seed database on startup:", seedErr);
     }
