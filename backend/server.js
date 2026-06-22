@@ -37,8 +37,19 @@ app.use("/api/tools", toolsRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/platform", platformRoutes);
 
-// Swagger Documentation
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// Swagger Documentation (using CDNs to prevent blank pages on Vercel)
+const CSS_URL = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.3.0/swagger-ui.min.css";
+app.use(
+  "/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    customCssUrl: CSS_URL,
+    customJs: [
+      "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.3.0/swagger-ui-bundle.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.3.0/swagger-ui-standalone-preset.js",
+    ],
+  })
+);
 
 // Landing Page
 app.get("/", (req, res) => {
