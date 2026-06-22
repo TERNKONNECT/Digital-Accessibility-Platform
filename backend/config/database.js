@@ -19,11 +19,16 @@ function createSqliteConnection() {
   });
 }
 
+const postgresSslOptions = process.env.DB_SSL === "false" ? {} : {
+  dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
+};
+
 function createPostgresConnection() {
   if (process.env.DATABASE_URL) {
     return new Sequelize(process.env.DATABASE_URL, {
       dialect: "postgres",
       logging,
+      ...postgresSslOptions,
     });
   }
 
@@ -36,6 +41,7 @@ function createPostgresConnection() {
       port: process.env.DB_PORT,
       dialect: "postgres",
       logging,
+      ...postgresSslOptions,
     }
   );
 }

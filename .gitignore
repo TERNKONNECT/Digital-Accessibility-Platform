@@ -13,6 +13,7 @@ dist-ssr/
 build/
 coverage/
 *.local
+backend/seed.js
 
 # Editor directories and files
 .vscode/*
@@ -42,3 +43,6 @@ Thumbs.db
 
 CLAUDE.md 
 AGENTS.md
+
+# Vercel
+.vercel
