@@ -3,6 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const { Sequelize } = require("sequelize");
 
+// Explicitly require these so Vercel's bundler (nft) includes them for Sequelize
+require("pg");
+require("pg-hstore");
+
 const dialect = (process.env.DB_DIALECT || "sqlite").toLowerCase();
 const logging = process.env.DB_LOGGING === "true" ? console.log : false;
 
