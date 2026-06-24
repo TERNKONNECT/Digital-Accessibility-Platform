@@ -2,7 +2,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const { User, Organization } = require("../models");
+const { User, Organization, ChromeIntegration, Subscription } = require("../models");
 const { verificationOtpEmailTemplate, passwordResetEmailTemplate, sendEmail } = require("../config/email.js");
 const authenticateToken = require("../middleware/authenticate");
 
@@ -144,6 +144,92 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign({ id: user.id, role: user.role, organizationId: user.organizationId }, process.env.JWT_SECRET, { expiresIn: "1d" });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, mustChangePassword: user.mustChangePassword } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Chrome-session token for the voice assistant (digital-accessibility-intelligence).
+// Reuses the same email + integrationCode + active-subscription check that
+// /api/platform/chrome/integrate already validates, but issues a short-lived
+// JWT instead of just flipping the integration to "active" — the Intelligence
+// backend verifies this token locally and never touches this database.
+const CHROME_SESSION_TTL_SECONDS = 30 * 60; // 30 minutes — Pro/Enterprise
+const TRIAL_SESSION_TTL_SECONDS = 5 * 60; // 5 minutes — Starter (free/trial tier)
+const TRIAL_SESSION_LIMIT = 30; // lifetime sessions on Starter before requiring an upgrade
+
+function maxConcurrentSessionsForPlan(planName) {
+  const tier = (planName || "").toLowerCase();
+  if (tier === "enterprise") return 5;
+  if (tier === "pro") return 2;
+  return 1;
+}
+
+function isTrialPlan(planName) {
+  return (planName || "").toLowerCase() === "starter";
+}
+
+// There is no separate anonymous trial mode anymore — every voice session,
+// trial or paid, goes through this same email + integrationCode flow. What
+// used to be "trial" is just the Starter plan's tighter, capped limits below.
+router.post("/session", async (req, res) => {
+  try {
+    const { email, integrationCode } = req.body;
+    if (!email || !integrationCode) {
+      return res.status(400).json({ error: "email and integrationCode are required" });
+    }
+
+    const user = await User.findOne({
+      where: { email: normalizeEmail(email) },
+      include: [{ model: Subscription, as: "subscription" }],
+    });
+    if (!user) return res.status(404).json({ error: "User with this email not found" });
+
+    if (!user.subscription || user.subscription.status !== "active") {
+      return res.status(402).json({ error: "Active subscription required" });
+    }
+
+    const integration = await ChromeIntegration.findOne({
+      where: { userId: user.id, integrationCode },
+    });
+    if (!integration) return res.status(400).json({ error: "Invalid integration code for this email" });
+
+    const subscription = user.subscription;
+    const trial = isTrialPlan(subscription.plan);
+
+    if (trial && subscription.trialSessionsUsed >= TRIAL_SESSION_LIMIT) {
+      return res.status(402).json({
+        error: `You've used all ${TRIAL_SESSION_LIMIT} free sessions on the Starter plan. Upgrade to continue using TernConnect.`,
+        trialExhausted: true,
+      });
+    }
+
+    const trialSessionsUsedBefore = subscription.trialSessionsUsed;
+    if (trial) {
+      await subscription.increment("trialSessionsUsed");
+    }
+
+    const sessionSeconds = trial ? TRIAL_SESSION_TTL_SECONDS : CHROME_SESSION_TTL_SECONDS;
+
+    const token = jwt.sign(
+      {
+        scope: "voice_session",
+        user_id: user.id,
+        integration_id: integration.id,
+        plan_tier: subscription.plan,
+        max_session_seconds: sessionSeconds,
+        max_concurrent_sessions: maxConcurrentSessionsForPlan(subscription.plan),
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: sessionSeconds }
+    );
+
+    res.json({
+      token,
+      expiresIn: sessionSeconds,
+      trial,
+      trialSessionsRemaining: trial ? TRIAL_SESSION_LIMIT - trialSessionsUsedBefore - 1 : undefined,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

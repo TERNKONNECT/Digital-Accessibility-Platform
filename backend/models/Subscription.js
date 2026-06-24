@@ -9,6 +9,10 @@ const Subscription = sequelize.define("Subscription", {
   limits: { type: DataTypes.JSON, defaultValue: {} }, // e.g. { tokens: 100000 }
   startsAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   endsAt: { type: DataTypes.DATE, allowNull: true },
+  // Lifetime count of voice-assistant sessions started on the Starter
+  // (default/free) plan. Enforced in POST /api/auth/session — 3 sessions of
+  // 5 minutes each, then the user must upgrade. Irrelevant for paid plans.
+  trialSessionsUsed: { type: DataTypes.INTEGER, defaultValue: 0 },
 });
 
 module.exports = Subscription;

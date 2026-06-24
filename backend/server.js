@@ -31,6 +31,7 @@ const pinRoutes = require("./routes/pin");
 const toolsRoutes = require("./routes/tools");
 const statsRoutes = require("./routes/stats");
 const platformRoutes = require("./routes/platform");
+const usageRoutes = require("./routes/usage");
 
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./swagger.json");
@@ -40,6 +41,7 @@ app.use("/api/pin", pinRoutes);
 app.use("/api/tools", toolsRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/platform", platformRoutes);
+app.use("/api/usage", usageRoutes);
 
 // Swagger Documentation (using CDNs to prevent blank pages on Vercel)
 const CSS_URL = "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.3.0/swagger-ui.min.css";
@@ -93,60 +95,57 @@ server.on("upgrade", async (request, socket, head) => {
   const { pathname, query } = url.parse(request.url, true);
 
   if (pathname === "/api/tools/proxy") {
-    const { email, pin, integrationCode, trial, profileId } = query;
+    // No anonymous/trial mode — every connection requires a real email +
+    // integrationCode, same as POST /api/auth/session. What used to be
+    // "trial" is now just the Starter plan's capped limits, enforced there.
+    const { email, pin, integrationCode, profileId } = query;
 
     let user = null;
+    const codeToUse = integrationCode || pin;
+    if (!email || !codeToUse) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
 
-    if (trial === "true") {
-      // Allow trials to connect
-      user = { email: `trial-${profileId || "anonymous"}`, id: null };
+    // Check ChromeIntegration code
+    const integration = await ChromeIntegration.findOne({
+      where: { integrationCode: codeToUse },
+      include: [{ model: User, as: "user" }]
+    });
+
+    if (integration && integration.user && integration.user.email.toLowerCase() === email.toLowerCase()) {
+      user = integration.user;
+
+      // Verify active subscription
+      const subscription = await Subscription.findByPk(user.subscriptionId);
+      if (!subscription || subscription.status !== "active") {
+        socket.write('HTTP/1.1 402 Payment Required\r\n\r\n');
+        socket.destroy();
+        return;
+      }
     } else {
-      const codeToUse = integrationCode || pin;
-      if (!email || !codeToUse) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-        return;
-      }
-
-      // Check ChromeIntegration code
-      const integration = await ChromeIntegration.findOne({
-        where: { integrationCode: codeToUse },
-        include: [{ model: User, as: "user" }]
-      });
-
-      if (integration && integration.user && integration.user.email.toLowerCase() === email.toLowerCase()) {
-        user = integration.user;
-        
-        // Verify active subscription
-        const subscription = await Subscription.findByPk(user.subscriptionId);
-        if (!subscription || subscription.status !== "active") {
-          socket.write('HTTP/1.1 402 Payment Required\r\n\r\n');
-          socket.destroy();
-          return;
-        }
-      } else {
-        // Fallback to IntegrationPin
-        const foundUser = await User.findOne({ where: { email } });
-        if (foundUser) {
-          const pins = await IntegrationPin.findAll({ where: { userId: foundUser.id, status: "active" } });
-          let isValid = false;
-          for (let p of pins) {
-            if (await bcrypt.compare(codeToUse, p.pin)) {
-              isValid = true;
-              break;
-            }
-          }
-          if (isValid) {
-            user = foundUser;
+      // Fallback to IntegrationPin
+      const foundUser = await User.findOne({ where: { email } });
+      if (foundUser) {
+        const pins = await IntegrationPin.findAll({ where: { userId: foundUser.id, status: "active" } });
+        let isValid = false;
+        for (let p of pins) {
+          if (await bcrypt.compare(codeToUse, p.pin)) {
+            isValid = true;
+            break;
           }
         }
+        if (isValid) {
+          user = foundUser;
+        }
       }
+    }
 
-      if (!user) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-        return;
-      }
+    if (!user) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
     }
 
     wss.handleUpgrade(request, socket, head, (ws) => {
@@ -242,6 +241,31 @@ sequelize.sync()
       }
     } catch (migErr) {
       console.error("Failed to run data migration to NGN:", migErr);
+    }
+    try {
+      // Add the new voice-session usage columns if this table predates them.
+      const { DataTypes } = require("sequelize");
+      const qi = sequelize.getQueryInterface();
+      const newColumns = {
+        integrationId: { type: DataTypes.UUID, allowNull: true },
+        durationSeconds: { type: DataTypes.FLOAT, defaultValue: 0 },
+        toolCallCount: { type: DataTypes.INTEGER, defaultValue: 0 },
+        audioSeconds: { type: DataTypes.FLOAT, defaultValue: 0 },
+      };
+      for (const [name, def] of Object.entries(newColumns)) {
+        await qi.addColumn("UsageLogs", name, def).catch(() => {});
+      }
+    } catch (usageMigErr) {
+      console.error("Failed to migrate UsageLogs columns:", usageMigErr);
+    }
+    try {
+      const { DataTypes } = require("sequelize");
+      await sequelize
+        .getQueryInterface()
+        .addColumn("Subscriptions", "trialSessionsUsed", { type: DataTypes.INTEGER, defaultValue: 0 })
+        .catch(() => {});
+    } catch (trialMigErr) {
+      console.error("Failed to migrate Subscriptions.trialSessionsUsed column:", trialMigErr);
     }
     try {
       if (seedDatabase) {
