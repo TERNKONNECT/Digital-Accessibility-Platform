@@ -1,0 +1,59 @@
+name: Deploy Frontend to S3 and CloudFront
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    env:
+      AWS_REGION: us-east-1
+      S3_BUCKET: ternkonnect-frontend-bucket
+      # Replace with your CloudFront Distribution ID after Terraform runs
+      CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
+      # Adjust if your build tool uses "build" instead of "dist"
+      BUILD_DIR: dist 
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20' # Or the version you use
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Install Dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build Application
+      working-directory: ./frontend
+      run: npm run build
+
+    - name: Sync to S3
+      working-directory: ./frontend
+      run: |
+        aws s3 sync ./${{ env.BUILD_DIR }} s3://${{ env.S3_BUCKET }} --delete
+
+    - name: Invalidate CloudFront Cache
+      run: |
+        if [ -n "${{ env.CLOUDFRONT_DIST_ID }}" ]; then
+          aws cloudfront create-invalidation --distribution-id ${{ env.CLOUDFRONT_DIST_ID }} --paths "/*"
+        else
+          echo "No CloudFront Distribution ID secret found. Skipping invalidation."
+        fi

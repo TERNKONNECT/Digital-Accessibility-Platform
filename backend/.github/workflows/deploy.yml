@@ -1,0 +1,57 @@
+name: Deploy Backend to Lightsail
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    env:
+      AWS_REGION: us-east-1
+      LIGHTSAIL_SERVICE_NAME: ternkonnect-backend
+      CONTAINER_NAME: backend
+      PORT: 3000 # Default port for Express backend, adjust if needed
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Install AWS Lightsail Control plugin
+      run: |
+        curl "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o "/usr/local/bin/lightsailctl"
+        sudo chmod +x /usr/local/bin/lightsailctl
+
+    - name: Build Docker Image
+      working-directory: ./backend
+      run: docker build -t ${{ env.LIGHTSAIL_SERVICE_NAME }}:latest .
+
+    - name: Push and Deploy to Lightsail
+      run: |
+        OUTPUT=$(aws lightsail push-container-image \
+          --region ${{ env.AWS_REGION }} \
+          --service-name ${{ env.LIGHTSAIL_SERVICE_NAME }} \
+          --label ${{ env.CONTAINER_NAME }} \
+          --image ${{ env.LIGHTSAIL_SERVICE_NAME }}:latest)
+        
+        echo "Push output: $OUTPUT"
+        
+        IMAGE_TAG=$(echo "$OUTPUT" | grep -o ':[^"]*')
+        echo "Extracted Image Tag: $IMAGE_TAG"
+        
+        aws lightsail create-container-service-deployment \
+          --region ${{ env.AWS_REGION }} \
+          --service-name ${{ env.LIGHTSAIL_SERVICE_NAME }} \
+          --containers "{\"${{ env.CONTAINER_NAME }}\":{\"image\":\"$IMAGE_TAG\",\"ports\":{\"${{ env.PORT }}\":\"HTTP\"}}}" \
+          --public-endpoint "{\"containerName\":\"${{ env.CONTAINER_NAME }}\",\"containerPort\":${{ env.PORT }}}"
