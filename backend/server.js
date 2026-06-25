@@ -5,10 +5,11 @@ const http = require("http");
 const WebSocket = require("ws");
 const bcrypt = require("bcryptjs");
 const url = require("url");
-const { sequelize, User, IntegrationPin, UsageLog, ChromeIntegration, Subscription } = require("./models");
+const { sequelize, User, IntegrationPin, UsageLog, ChromeIntegration, ChromeProfile, WidgetSite, Subscription } = require("./models");
 
 const path = require("path");
 const app = express();
+app.locals.activeWsConnections = new Map();
 const server = http.createServer(app);
 app.use(cors({
   origin: "*",
@@ -103,6 +104,8 @@ server.on("upgrade", async (request, socket, head) => {
 
     let user = null;
     const codeToUse = integrationCode || pin;
+    let connectionId = profileId || null;
+
     if (!email || !codeToUse) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
@@ -118,6 +121,16 @@ server.on("upgrade", async (request, socket, head) => {
     if (integration && integration.user && integration.user.email.toLowerCase() === email.toLowerCase()) {
       user = integration.user;
 
+      if (profileId) {
+        const profile = await ChromeProfile.findOne({ where: { profileId, chromeIntegrationId: integration.id } });
+        if (profile && profile.status === "inactive") {
+          socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+        if (profile) connectionId = profile.id;
+      }
+
       // Verify active subscription
       const subscription = await Subscription.findByPk(user.subscriptionId);
       if (!subscription || subscription.status !== "active") {
@@ -126,19 +139,31 @@ server.on("upgrade", async (request, socket, head) => {
         return;
       }
     } else {
-      // Fallback to IntegrationPin
-      const foundUser = await User.findOne({ where: { email } });
-      if (foundUser) {
-        const pins = await IntegrationPin.findAll({ where: { userId: foundUser.id, status: "active" } });
-        let isValid = false;
-        for (let p of pins) {
-          if (await bcrypt.compare(codeToUse, p.pin)) {
-            isValid = true;
-            break;
-          }
+      // Check WidgetSite
+      const widget = await WidgetSite.findOne({ where: { integrationCode: codeToUse } });
+      if (widget) {
+        if (widget.status === "inactive") {
+          socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+          socket.destroy();
+          return;
         }
-        if (isValid) {
-          user = foundUser;
+        user = await User.findByPk(widget.userId);
+        connectionId = widget.id;
+      } else {
+        // Fallback to IntegrationPin
+        const foundUser = await User.findOne({ where: { email } });
+        if (foundUser) {
+          const pins = await IntegrationPin.findAll({ where: { userId: foundUser.id, status: "active" } });
+          let isValid = false;
+          for (let p of pins) {
+            if (await bcrypt.compare(codeToUse, p.pin)) {
+              isValid = true;
+              break;
+            }
+          }
+          if (isValid) {
+            user = foundUser;
+          }
         }
       }
     }
@@ -150,14 +175,20 @@ server.on("upgrade", async (request, socket, head) => {
     }
 
     wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit("connection", ws, request, user, profileId);
+      wss.emit("connection", ws, request, user, connectionId);
     });
   } else {
     socket.destroy();
   }
 });
 
-wss.on("connection", (clientWs, request, user, profileId) => {
+wss.on("connection", (clientWs, request, user, connectionId) => {
+  if (connectionId) {
+    if (!app.locals.activeWsConnections.has(connectionId)) {
+      app.locals.activeWsConnections.set(connectionId, new Set());
+    }
+    app.locals.activeWsConnections.get(connectionId).add(clientWs);
+  }
   // We don't have GEMINI_API_KEY_FALLBACK, assume the server provides it via .env
   // For safety if not provided, just drop connection or use placeholder
   const geminiApiKey = process.env.GEMINI_API_KEY || 'YOUR_MASTER_GEMINI_KEY';
@@ -182,6 +213,9 @@ wss.on("connection", (clientWs, request, user, profileId) => {
   });
 
   clientWs.on("close", () => {
+    if (connectionId && app.locals.activeWsConnections.has(connectionId)) {
+      app.locals.activeWsConnections.get(connectionId).delete(clientWs);
+    }
     targetWs.close();
   });
 

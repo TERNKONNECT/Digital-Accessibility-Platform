@@ -1027,4 +1027,115 @@ router.post("/payment/webhook", async (req, res) => {
   }
 });
 
+function disconnectActiveClients(req, connectionId) {
+  if (req.app.locals.activeWsConnections && req.app.locals.activeWsConnections.has(connectionId)) {
+    const wsSet = req.app.locals.activeWsConnections.get(connectionId);
+    wsSet.forEach(ws => {
+      try {
+        ws.close(1008, "Access Revoked");
+      } catch (e) {}
+    });
+    wsSet.clear();
+  }
+}
+
+// ── Chrome Profile Management ────────────────────────────────────────────────
+router.patch("/chrome-profile/:id/status", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!["active", "inactive"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status. Must be 'active' or 'inactive'." });
+    }
+
+    const profile = await ChromeProfile.findByPk(id, { include: [{ model: ChromeIntegration, as: "integration" }] });
+    if (!profile) return res.status(404).json({ error: "Chrome profile not found" });
+
+    // Security check: ensure user owns the integration
+    if (profile.integration.userId !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    await profile.update({ status });
+
+    if (status === "inactive") {
+      disconnectActiveClients(req, profile.id);
+    }
+
+    res.json({ message: "Chrome profile status updated", profile });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/chrome-profile/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const profile = await ChromeProfile.findByPk(id, { include: [{ model: ChromeIntegration, as: "integration" }] });
+    if (!profile) return res.status(404).json({ error: "Chrome profile not found" });
+
+    if (profile.integration.userId !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    disconnectActiveClients(req, profile.id);
+    await profile.destroy();
+
+    res.json({ message: "Chrome profile deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Widget Management ───────────────────────────────────────────────────────
+router.patch("/widget/:id/status", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!["pending", "active", "inactive"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const widget = await WidgetSite.findByPk(id);
+    if (!widget) return res.status(404).json({ error: "Widget not found" });
+
+    if (widget.userId !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    await widget.update({ status });
+
+    if (status === "inactive") {
+      disconnectActiveClients(req, widget.id);
+    }
+
+    res.json({ message: "Widget status updated", widget });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/widget/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const widget = await WidgetSite.findByPk(id);
+    if (!widget) return res.status(404).json({ error: "Widget not found" });
+
+    if (widget.userId !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    disconnectActiveClients(req, widget.id);
+    await widget.destroy();
+
+    res.json({ message: "Widget deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
