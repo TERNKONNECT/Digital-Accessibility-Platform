@@ -5,10 +5,10 @@ output "container_service_url" {
 
 output "database_endpoint" {
   description = "Database connection endpoint"
-  value       = aws_lightsail_database.db.master_endpoint_address
+  value       = aws_db_instance.db.endpoint
 }
 
 output "database_port" {
   description = "Database connection port"
-  value       = aws_lightsail_database.db.master_endpoint_port
+  value       = aws_db_instance.db.port
 }
