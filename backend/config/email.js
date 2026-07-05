@@ -25,7 +25,7 @@ function getFromAddress() {
     return value;
 }
 
-export async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, subject, html }) {
     if (!process.env.RESEND_API_KEY) {
         if (!isProduction()) {
             console.warn(`Email not sent to ${to} because RESEND_API_KEY is not configured. Subject: ${subject}`);
@@ -71,7 +71,7 @@ export async function sendEmail({ to, subject, html }) {
     return data;
 }
 
-export function appUrl(path = "") {
+function appUrl(path = "") {
     const baseUrl = process.env.FRONTEND_URL || "http://localhost:8080";
     return `${baseUrl.replace(/\/$/, "")}${path}`;
 }
@@ -165,7 +165,7 @@ function emailLayout({
 </html>`;
 }
 
-export function verificationOtpEmailTemplate({ name, otp }) {
+function verificationOtpEmailTemplate({ name, otp }) {
     const safeName = escapeHtml(name);
     const safeOtp = escapeHtml(otp);
 
@@ -187,7 +187,7 @@ export function verificationOtpEmailTemplate({ name, otp }) {
     });
 }
 
-export function passwordResetEmailTemplate({ name, otp }) {
+function passwordResetEmailTemplate({ name, otp }) {
     const safeName = escapeHtml(name);
     const safeOtp = escapeHtml(otp);
 
@@ -209,7 +209,7 @@ export function passwordResetEmailTemplate({ name, otp }) {
     });
 }
 
-export function adminInvitePasswordEmailTemplate({ name, inviterName, tempPassword }) {
+function adminInvitePasswordEmailTemplate({ name, inviterName, tempPassword }) {
     const safeName = escapeHtml(name);
     const safeInviterName = escapeHtml(inviterName || "A super admin");
     const safeTempPassword = escapeHtml(tempPassword);
@@ -233,7 +233,7 @@ export function adminInvitePasswordEmailTemplate({ name, inviterName, tempPasswo
     });
 }
 
-export function paymentInvoiceEmailTemplate({
+function paymentInvoiceEmailTemplate({
     name,
     courseTitle,
     amount,
@@ -291,3 +291,12 @@ export function paymentInvoiceEmailTemplate({
             "This receipt confirms successful payment and lifetime access to the course.",
     });
 }
+
+module.exports = {
+  sendEmail,
+  appUrl,
+  verificationOtpEmailTemplate,
+  passwordResetEmailTemplate,
+  adminInvitePasswordEmailTemplate,
+  paymentInvoiceEmailTemplate
+};
