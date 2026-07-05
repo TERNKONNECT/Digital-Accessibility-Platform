@@ -407,7 +407,6 @@ The `seed.js` file creates:
 | **Test Subscriptions** | 15 test users with alternating Starter/Pro plans |
 
 
-
 > **Default password for all seeded users:** `Password123`
 
 ### Migrations
