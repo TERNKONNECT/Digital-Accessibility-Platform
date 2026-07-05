@@ -1,7 +1,3 @@
-output "container_service_url" {
-  description = "Public URL of the backend service"
-  value       = aws_lightsail_container_service.app.url
-}
 
 output "database_endpoint" {
   description = "Database connection endpoint"
@@ -11,4 +7,9 @@ output "database_endpoint" {
 output "database_port" {
   description = "Database connection port"
   value       = aws_db_instance.db.port
+}
+
+output "database_username" {
+  description = "Database master username"
+  value       = aws_db_instance.db.username
 }

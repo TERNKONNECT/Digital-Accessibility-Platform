@@ -17,7 +17,7 @@ jobs:
       # Replace with your CloudFront Distribution ID after Terraform runs
       CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
       # Adjust if your build tool uses "build" instead of "dist"
-      BUILD_DIR: dist 
+      BUILD_DIR: out
 
     steps:
     - name: Checkout code

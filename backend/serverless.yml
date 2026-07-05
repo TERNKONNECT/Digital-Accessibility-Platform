@@ -1,0 +1,44 @@
+service: ternkonnect-platform-backend
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: eu-west-1
+  stage: ${opt:stage, 'prod'}
+  environment:
+    NODE_ENV: ${env:NODE_ENV, 'production'}
+    DATABASE_URL: ${env:DATABASE_URL, ''}
+    JWT_SECRET: ${env:JWT_SECRET, ''}
+    PAYSTACK_SECRET_KEY: ${env:PAYSTACK_SECRET_KEY, ''}
+    INTELLIGENCE_SERVICE_KEY: ${env:INTELLIGENCE_SERVICE_KEY, ''}
+    DB_DIALECT: ${env:DB_DIALECT, 'postgres'}
+    PORT: 9001
+
+custom:
+  dotenv:
+    exclude:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN
+      - AWS_REGION
+
+functions:
+  app:
+    handler: lambda.handler
+    events:
+      - httpApi:
+          path: '*'
+          method: '*'
+
+package:
+  # Keep Lambda payload footprint small by excluding developer/CI tools
+  patterns:
+    - '!.git/**'
+    - '!.github/**'
+    - '!.vscode/**'
+    - '!*.md'
+    - '!terraform/**'
+
+plugins:
+  - serverless-dotenv-plugin

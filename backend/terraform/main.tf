@@ -9,6 +9,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+  profile="ternkonnect"
 }
 
 # Default VPC Security Group for RDS to allow connections
@@ -36,24 +37,12 @@ resource "aws_db_instance" "db" {
   identifier             = "${var.service_name}-db"
   allocated_storage      = 20
   engine                 = "postgres"
-  engine_version         = "15.7"
+  engine_version         = "16"
   instance_class         = "db.t4g.micro"
-  username               = "dbmasteruser"
+  username               = "ternkonnectuser"
   password               = var.db_password
   publicly_accessible    = true
   skip_final_snapshot    = true
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
 }
 
-# Lightsail Container Service
-resource "aws_lightsail_container_service" "app" {
-  name        = var.service_name
-  power       = "nano" # 512MB RAM, 0.25 vCPU ($7/mo)
-  scale       = 1
-  is_disabled = false
-  
-  tags = {
-    Environment = "production"
-    Project     = "TernKonnect"
-  }
-}

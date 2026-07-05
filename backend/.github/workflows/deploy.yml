@@ -12,10 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      AWS_REGION: us-east-1
-      LIGHTSAIL_SERVICE_NAME: ternkonnect-backend
-      CONTAINER_NAME: backend
-      PORT: 3000 # Default port for Express backend, adjust if needed
+      AWS_REGION: eu-west-1
 
     steps:
     - name: Checkout code
@@ -28,30 +25,29 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Install AWS Lightsail Control plugin
-      run: |
-        curl "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o "/usr/local/bin/lightsailctl"
-        sudo chmod +x /usr/local/bin/lightsailctl
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
 
-    - name: Build Docker Image
+    - name: Install Dependencies
       working-directory: ./backend
-      run: docker build -t ${{ env.LIGHTSAIL_SERVICE_NAME }}:latest .
+      run: npm ci
 
-    - name: Push and Deploy to Lightsail
+    - name: Create .env file for Serverless
+      working-directory: ./backend
       run: |
-        OUTPUT=$(aws lightsail push-container-image \
-          --region ${{ env.AWS_REGION }} \
-          --service-name ${{ env.LIGHTSAIL_SERVICE_NAME }} \
-          --label ${{ env.CONTAINER_NAME }} \
-          --image ${{ env.LIGHTSAIL_SERVICE_NAME }}:latest)
-        
-        echo "Push output: $OUTPUT"
-        
-        IMAGE_TAG=$(echo "$OUTPUT" | grep -o ':[^"]*')
-        echo "Extracted Image Tag: $IMAGE_TAG"
-        
-        aws lightsail create-container-service-deployment \
-          --region ${{ env.AWS_REGION }} \
-          --service-name ${{ env.LIGHTSAIL_SERVICE_NAME }} \
-          --containers "{\"${{ env.CONTAINER_NAME }}\":{\"image\":\"$IMAGE_TAG\",\"ports\":{\"${{ env.PORT }}\":\"HTTP\"}}}" \
-          --public-endpoint "{\"containerName\":\"${{ env.CONTAINER_NAME }}\",\"containerPort\":${{ env.PORT }}}"
+        echo "NODE_ENV=production" >> .env
+        echo "DB_DIALECT=postgres" >> .env
+        echo "PORT=9001" >> .env
+        echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+        echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+        echo "PAYSTACK_SECRET_KEY=${{ secrets.PAYSTACK_SECRET_KEY }}" >> .env
+        echo "INTELLIGENCE_SERVICE_KEY=${{ secrets.INTELLIGENCE_SERVICE_KEY }}" >> .env
+        # Add any other required secrets below using the same format
+
+    - name: Deploy with Serverless Framework
+      working-directory: ./backend
+      run: npx serverless deploy --stage prod
