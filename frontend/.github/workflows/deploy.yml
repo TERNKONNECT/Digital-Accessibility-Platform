@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      AWS_REGION: us-east-1
-      S3_BUCKET: ternkonnect-frontend-bucket
+      AWS_REGION: eu-west-1
+      S3_BUCKET: ternkonnect-tool-frontend-bucket
       # Replace with your CloudFront Distribution ID after Terraform runs
       CLOUDFRONT_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
       # Adjust if your build tool uses "build" instead of "dist"

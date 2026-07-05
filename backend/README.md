@@ -406,6 +406,7 @@ The `seed.js` file creates:
 | **Plans** | Starter (₦29/mo), Pro (₦79/mo), Enterprise (yearly, custom pricing) |
 | **Test Subscriptions** | 15 test users with alternating Starter/Pro plans |
 
+
 > **Default password for all seeded users:** `Password123`
 
 ### Migrations
