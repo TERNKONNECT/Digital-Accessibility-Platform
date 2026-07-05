@@ -12,6 +12,7 @@ provider:
     JWT_SECRET: ${env:JWT_SECRET, ''}
     PAYSTACK_SECRET_KEY: ${env:PAYSTACK_SECRET_KEY, ''}
     INTELLIGENCE_SERVICE_KEY: ${env:INTELLIGENCE_SERVICE_KEY, ''}
+    CORS_ORIGIN: ${env:CORS_ORIGIN, '*'}
     DB_DIALECT: ${env:DB_DIALECT, 'postgres'}
     PORT: 9001
 

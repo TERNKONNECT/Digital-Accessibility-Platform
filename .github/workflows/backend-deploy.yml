@@ -46,6 +46,7 @@ jobs:
         echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
         echo "PAYSTACK_SECRET_KEY=${{ secrets.PAYSTACK_SECRET_KEY }}" >> .env
         echo "INTELLIGENCE_SERVICE_KEY=${{ secrets.INTELLIGENCE_SERVICE_KEY }}" >> .env
+        echo "CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}" >> .env
         # Add any other required secrets below using the same format
 
     - name: Deploy with Serverless Framework
