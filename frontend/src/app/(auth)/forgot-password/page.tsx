@@ -9,19 +9,24 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const forgotPassword = useAuthStore((state) => state.forgotPassword);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError("");
     setMessage("");
+    setLoading(true);
     try {
       const res = await forgotPassword(email);
       setMessage(res.message);
       setTimeout(() => router.push(`/reset-password?email=${encodeURIComponent(email)}`), 2000);
     } catch (err: any) {
       setError(err.message || "Failed to request reset.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -39,7 +44,9 @@ export default function ForgotPasswordPage() {
             <label className="block text-sm font-medium mb-1">Email</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-zinc-50 dark:bg-black focus:ring-2 focus:ring-[var(--primary)]" required />
           </div>
-          <button type="submit" className="w-full mt-2 bg-[var(--primary)] text-white font-medium py-2 px-4 rounded-lg hover:bg-[var(--accent)] transition-colors">Send Code</button>
+          <button type="submit" disabled={loading} className="w-full mt-2 bg-[var(--primary)] text-white font-medium py-2 px-4 rounded-lg hover:bg-[var(--accent)] transition-colors disabled:opacity-50">
+            {loading ? "Sending..." : "Send Code"}
+          </button>
         </form>
         <div className="mt-4 text-center text-sm">
           Remembered your password? <Link href="/login" className="text-[var(--primary)] hover:underline">Log in</Link>

@@ -15,13 +15,16 @@ export default function SignupPage() {
   const [role, setRole] = useState("solo");
   const [orgName, setOrgName] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const signup = useAuthStore((state) => state.signup);
   const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError("");
+    setLoading(true);
     try {
       const res = await signup(name, email, password, role, role === "org_admin" ? orgName : undefined);
       if (res.verificationOtp) {
@@ -31,6 +34,8 @@ export default function SignupPage() {
       router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message || "Failed to sign up");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -79,7 +84,9 @@ export default function SignupPage() {
               </button>
             </div>
           </div>
-          <button type="submit" className="w-full mt-4 bg-[var(--primary)] text-white font-medium py-2 px-4 rounded-lg hover:bg-[var(--accent)] transition-colors">Sign Up</button>
+          <button type="submit" disabled={loading} className="w-full mt-4 bg-[var(--primary)] text-white font-medium py-2 px-4 rounded-lg hover:bg-[var(--accent)] transition-colors disabled:opacity-50">
+            {loading ? "Signing Up..." : "Sign Up"}
+          </button>
         </form>
         <div className="mt-4 text-center text-sm">
           Already have an account? <Link href="/login" className="text-[var(--primary)] hover:underline">Log in</Link>

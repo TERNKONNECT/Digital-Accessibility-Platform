@@ -39,6 +39,30 @@ resource "aws_cloudfront_origin_access_control" "oac" {
   signing_protocol                  = "sigv4"
 }
 
+# 2.5 CloudFront Function for Next.js Routing
+resource "aws_cloudfront_function" "nextjs_routing" {
+  name    = "${replace(var.bucket_name, ".", "-")}-routing"
+  runtime = "cloudfront-js-1.0"
+  comment = "Appends .html to URIs for Next.js static export routing"
+  publish = true
+  code    = <<EOF
+function handler(event) {
+    var request = event.request;
+    var uri = request.uri;
+
+    if (uri.endsWith('/')) {
+        request.uri += 'index.html';
+    }
+    else if (!uri.includes('.')) {
+        request.uri += '.html';
+    }
+
+    return request;
+}
+EOF
+}
+
+
 # 3. CloudFront Distribution
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
@@ -67,20 +91,25 @@ resource "aws_cloudfront_distribution" "frontend" {
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.nextjs_routing.arn
+    }
   }
 
-  # SPA Routing Fix: Redirect 404/403 to index.html
+  # SPA Routing Fix: Next.js generates 404.html
   custom_error_response {
     error_code            = 403
-    response_code         = 200
-    response_page_path    = "/index.html"
+    response_code         = 404
+    response_page_path    = "/404.html"
     error_caching_min_ttl = 10
   }
   
   custom_error_response {
     error_code            = 404
-    response_code         = 200
-    response_page_path    = "/index.html"
+    response_code         = 404
+    response_page_path    = "/404.html"
     error_caching_min_ttl = 10
   }
 
