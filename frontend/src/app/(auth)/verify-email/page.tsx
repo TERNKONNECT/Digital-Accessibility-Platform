@@ -13,6 +13,7 @@ function VerifyEmailContent() {
   const [otp, setOtp] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const verifyEmail = useAuthStore((state) => state.verifyEmail);
   const resendVerification = useAuthStore((state) => state.resendVerification);
@@ -20,14 +21,18 @@ function VerifyEmailContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError("");
     setMessage("");
+    setLoading(true);
     try {
       const res = await verifyEmail(email, otp);
       setMessage(res.message);
       setTimeout(() => router.push("/login"), 1500);
     } catch (err: any) {
       setError(err.message || "Failed to verify email.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,7 +75,9 @@ function VerifyEmailContent() {
             <label className="block text-sm font-medium mb-1">Verification Code (OTP)</label>
             <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-zinc-50 dark:bg-black focus:ring-2 focus:ring-[var(--primary)]" required />
           </div>
-          <button type="submit" className="w-full mt-2 bg-[var(--primary)] text-white font-medium py-2 px-4 rounded-lg hover:bg-[var(--accent)] transition-colors">Verify Email</button>
+          <button type="submit" disabled={loading} className="w-full mt-2 bg-[var(--primary)] text-white font-medium py-2 px-4 rounded-lg hover:bg-[var(--accent)] transition-colors disabled:opacity-50">
+            {loading ? "Verifying..." : "Verify Email"}
+          </button>
         </form>
         <div className="mt-4 text-center text-sm flex flex-col gap-2">
           <button onClick={handleResend} disabled={resending} className="text-[var(--primary)] hover:underline disabled:opacity-50">
