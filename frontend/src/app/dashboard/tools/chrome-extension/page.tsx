@@ -13,6 +13,7 @@ import {
   formatDate,
   OverviewResponse,
   regenerateChromeIntegration,
+  removeChromeProfile,
 } from "@/lib/platform";
 
 export default function ChromeExtensionToolPage() {
@@ -49,6 +50,17 @@ export default function ChromeExtensionToolPage() {
       console.error(err);
     } finally {
       setLoadingActivities(false);
+    }
+  }
+
+  async function handleRemoveProfile(profileId: string) {
+    if (!confirm("Are you sure you want to remove this profile? This will immediately log out the user from the extension.")) return;
+    setError("");
+    try {
+      await removeChromeProfile(token, profileId);
+      load(); // refresh the list
+    } catch (err) {
+      setError(apiErrorMessage(err, "Could not remove the profile."));
     }
   }
 
@@ -202,12 +214,20 @@ export default function ChromeExtensionToolPage() {
                         </span>
                       </td>
                       <td className="text-right">
-                        <button
-                          onClick={() => toggleProfileActivities(profile.id)}
-                          className="rounded-lg bg-zinc-100 px-2.5 py-1 text-xs font-semibold transition hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-                        >
-                          {selectedProfileId === profile.id ? "Hide Activities" : "View Activities"}
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => toggleProfileActivities(profile.id)}
+                            className="rounded-lg bg-zinc-100 px-2.5 py-1 text-xs font-semibold transition hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                          >
+                            {selectedProfileId === profile.id ? "Hide Activities" : "View Activities"}
+                          </button>
+                          <button
+                            onClick={() => handleRemoveProfile(profile.id)}
+                            className="rounded-lg bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-200 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     {selectedProfileId === profile.id && (
