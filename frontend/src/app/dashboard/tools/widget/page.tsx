@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Copy, Globe2, Plus } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { apiErrorMessage, createWidget, fetchOverview, OverviewResponse, WidgetSite } from "@/lib/platform";
+import { apiErrorMessage, createWidget, fetchOverview, OverviewResponse, removeWidgetSite, WidgetSite } from "@/lib/platform";
 
 export default function WidgetToolPage() {
   const { token } = useAuthStore();
@@ -36,6 +36,17 @@ export default function WidgetToolPage() {
     } catch (err) {
       setError(apiErrorMessage(err, "Could not add this website."));
       load(); // refresh overLimit in case the limit was just reached
+    }
+  }
+
+  async function handleRemoveWidget(widgetId: string) {
+    if (!confirm("Are you sure you want to remove this website widget? It will immediately stop working on the site.")) return;
+    setError("");
+    try {
+      await removeWidgetSite(token, widgetId);
+      load();
+    } catch (err) {
+      setError(apiErrorMessage(err, "Could not remove the widget."));
     }
   }
 
@@ -115,9 +126,14 @@ export default function WidgetToolPage() {
                 <div className="mt-3 grid gap-2 text-sm">
                   <p>Widget ID: <code>{site.widgetId}</code></p>
                   <p>Usage: <strong>{site.usageCount}</strong> · Loads: <strong>{site.widgetLoads}</strong> · Daily: <strong>{site.dailyUsage}</strong> · Weekly: <strong>{site.weeklyUsage}</strong> · Monthly: <strong>{site.monthlyUsage}</strong></p>
-                  <button onClick={() => copy(site.embedScript, site.id)} className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                    {copied === site.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copied === site.id ? "Copied" : "Copy Embed Script"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => copy(site.embedScript, site.id)} className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm transition hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                      {copied === site.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copied === site.id ? "Copied" : "Copy Embed Script"}
+                    </button>
+                    <button onClick={() => handleRemoveWidget(site.id)} className="inline-flex w-fit items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 transition hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-900/50">
+                      Remove
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -179,6 +179,14 @@ export async function fetchProfileActivities(token: string | null, profileId: st
   return response.data;
 }
 
+export async function removeChromeProfile(token: string | null, profileId: string): Promise<void> {
+  await axios.delete(`${API_URL}/platform/chrome-profile/${profileId}`, { headers: authHeaders(token) });
+}
+
+export async function removeWidgetSite(token: string | null, widgetId: string): Promise<void> {
+  await axios.delete(`${API_URL}/platform/widget/${widgetId}`, { headers: authHeaders(token) });
+}
+
 export function apiErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
   if (axios.isAxiosError(error) && typeof error.response?.data?.error === "string") {
     return error.response.data.error;
