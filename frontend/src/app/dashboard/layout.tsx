@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/store/authStore";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { LogOut, Home, Wrench, CreditCard, History, ShieldCheck, Users, BarChart3, Settings, Layers, Monitor, Activity, UserCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -10,8 +10,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, isAuthenticated, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     if (!isAuthenticated) {
       router.push("/login");
       return;
@@ -19,8 +25,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (user?.mustChangePassword && pathname !== "/dashboard/profile") {
       router.push("/dashboard/profile");
     }
-  }, [isAuthenticated, user, pathname, router]);
+  }, [mounted, isAuthenticated, user, pathname, router]);
 
+  if (!mounted) return null;
   if (!isAuthenticated || !user) return null;
   if (user.mustChangePassword && pathname !== "/dashboard/profile") return null;
 
