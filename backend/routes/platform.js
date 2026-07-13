@@ -1081,6 +1081,7 @@ router.delete("/chrome-profile/:id", authenticateToken, async (req, res) => {
     }
 
     disconnectActiveClients(req, profile.id);
+    await ChromeProfileActivity.destroy({ where: { chromeProfileId: profile.id } });
     await profile.destroy();
 
     res.json({ message: "Chrome profile deleted successfully" });
