@@ -43,6 +43,9 @@ export default function LoginPage() {
     try {
       const res = await resendVerification(email);
       setResendMessage(res.message || "Verification code sent.");
+      setTimeout(() => {
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+      }, 1500);
     } catch (err: unknown) {
       setResendMessage(err instanceof Error ? err.message : "Failed to resend code");
     } finally {
@@ -69,14 +72,23 @@ export default function LoginPage() {
           <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center flex flex-col gap-2">
             <span>{error}</span>
             {error.includes("verify your email") && (
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={resendLoading}
-                className="mt-1 bg-red-200 text-red-800 px-3 py-1.5 rounded font-medium hover:bg-red-300 transition-colors disabled:opacity-50"
-              >
-                {resendLoading ? "Sending..." : "Resend Verification Code"}
-              </button>
+              <div className="flex flex-col gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendLoading}
+                  className="bg-red-200 text-red-800 px-3 py-1.5 rounded font-medium hover:bg-red-300 transition-colors disabled:opacity-50"
+                >
+                  {resendLoading ? "Sending..." : "Resend Verification Code"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/verify-email?email=${encodeURIComponent(email)}`)}
+                  className="text-sm font-medium underline text-red-700 hover:text-red-900"
+                >
+                  Enter Verification Code
+                </button>
+              </div>
             )}
           </div>
         )}
